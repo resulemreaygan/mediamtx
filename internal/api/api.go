@@ -333,8 +333,9 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 		return
 	}
 
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
+    a.Conf = newConf
+    // perform reload asynchronously to avoid blocking the HTTP handler
+    go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -414,8 +415,9 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
+    a.Conf = newConf
+    // perform reload asynchronously to avoid blocking the HTTP handler
+    go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -455,8 +457,9 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
+    a.Conf = newConf
+    // perform reload asynchronously to avoid blocking the HTTP handler
+    go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -496,8 +499,9 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
+    a.Conf = newConf
+    // perform reload asynchronously to avoid blocking the HTTP handler
+    go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -530,8 +534,9 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	a.Conf = newConf
-	a.Parent.APIConfigSet(newConf)
+    a.Conf = newConf
+    // perform reload asynchronously to avoid blocking the HTTP handler
+    go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }

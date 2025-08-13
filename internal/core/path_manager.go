@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -262,7 +263,20 @@ func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 func (pm *pathManager) removeAndClosePath(path *path) {
 	pm.removePath(path)
 	path.close()
-	path.wait() // avoid conflicts between sources
+
+	// wait for path to close, but avoid blocking indefinitely
+	done := make(chan struct{})
+	go func() {
+		path.wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// closed cleanly
+	case <-time.After(5 * time.Second):
+		pm.Log(logger.Warn, "timeout while closing path '%s'", path.name)
+	}
 }
 
 func (pm *pathManager) doSetHLSServer(m *hls.Server) []defs.Path {
