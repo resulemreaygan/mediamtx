@@ -167,31 +167,62 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 				return err2
 			}
 
-			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
-				Desc:               desc,
-				GenerateRTPPackets: false,
-			})
-			if res.Err != nil {
-				return res.Err
-			}
-
-			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
-
-			rtsp.ToStream(
-				c,
-				desc.Medias,
-				params.Conf,
-				res.Stream,
-				s)
-
 			rangeHeader, err2 := createRangeHeader(params.Conf)
 			if err2 != nil {
 				return err2
 			}
 
+			var demuxer *mpegtsDemuxer
+
+			if params.Conf.RTSPDemuxMpegts {
+				mpegtsMedia, mpegtsFormat := findSingleMPEGTSFormat(desc)
+				if mpegtsFormat != nil {
+					s.Log(logger.Info, "MPEG-TS demux mode enabled")
+
+					demuxer = &mpegtsDemuxer{
+						log:          s,
+						parent:       s.Parent,
+						client:       c,
+						mpegtsMedia:  mpegtsMedia,
+						mpegtsFormat: mpegtsFormat,
+						decodeErrors: decodeErrors,
+					}
+					err2 = demuxer.initialize()
+					if err2 != nil {
+						return err2
+					}
+					defer demuxer.close()
+				}
+			}
+
+			if demuxer == nil {
+				res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+					Desc:               desc,
+					GenerateRTPPackets: false,
+				})
+				if res.Err != nil {
+					return res.Err
+				}
+
+				defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
+
+				rtsp.ToStream(
+					c,
+					desc.Medias,
+					params.Conf,
+					res.Stream,
+					s)
+			}
+
 			_, err2 = c.Play(rangeHeader)
 			if err2 != nil {
 				return err2
+			}
+
+			if demuxer != nil {
+				demuxerErr := demuxer.wait()
+				c.Close()
+				return demuxerErr
 			}
 
 			return c.Wait()

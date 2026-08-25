@@ -375,6 +375,8 @@ components:
           type: boolean
         srtPublishPassphrase:
           type: string
+        rtspDemuxMpegts:
+          type: boolean
 
         # RTSP source
         rtspTransport:
