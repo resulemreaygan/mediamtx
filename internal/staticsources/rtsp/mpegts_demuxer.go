@@ -1,9 +1,11 @@
 package rtsp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -41,6 +43,7 @@ type mpegtsDemuxer struct {
 
 	pipeWriter *io.PipeWriter
 	errChan    chan error
+	closeOnce  sync.Once
 }
 
 func (d *mpegtsDemuxer) initialize() error {
@@ -62,8 +65,8 @@ func (d *mpegtsDemuxer) initialize() error {
 		}
 
 		for _, data := range tsData {
-			_, err = pw.Write(data)
-			if err != nil {
+			_, writeErr := pw.Write(data)
+			if writeErr != nil {
 				return
 			}
 		}
@@ -75,13 +78,29 @@ func (d *mpegtsDemuxer) initialize() error {
 }
 
 func (d *mpegtsDemuxer) close() {
-	if d.pipeWriter != nil {
-		d.pipeWriter.CloseWithError(io.EOF)
-	}
+	d.closeOnce.Do(func() {
+		if d.pipeWriter != nil {
+			d.pipeWriter.CloseWithError(io.EOF)
+		}
+	})
 }
 
-func (d *mpegtsDemuxer) wait() error {
-	return <-d.errChan
+func (d *mpegtsDemuxer) wait(ctx context.Context) error {
+	select {
+	case err := <-d.errChan:
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+
+	case <-ctx.Done():
+		d.close()
+		err := <-d.errChan
+		if err == nil || errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
 }
 
 func (d *mpegtsDemuxer) run(pr *io.PipeReader) {
