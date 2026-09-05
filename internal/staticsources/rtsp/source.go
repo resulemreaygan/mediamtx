@@ -2,7 +2,6 @@
 package rtsp
 
 import (
-	"context"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
